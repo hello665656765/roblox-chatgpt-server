@@ -1,31 +1,36 @@
 from flask import Flask, request, jsonify
-import openai
 import os
+import requests
 
 app = Flask(__name__)
 
-# This automatically uses the secret key you set in Render (100% safe)
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+URL = "https://api.groq.com/openai/v1/chat/completions"
 
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
-        data = request.get_json()
-        message = data.get("message", "").strip()
-        if not message:
-            return jsonify({"reply": "Please type something!"}), 200
-            
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": message}],
-            max_tokens=500
-        )
-        reply = response.choices[0].message.content
+        user_message = request.json.get("message", "")
+        if not user_message:
+            return jsonify({"reply": "Say something!"})
+
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": "llama-3.3-70b-versatile",  # super fast & free
+            "messages": [{"role": "user", "content": user_message}],
+            "temperature": 0.7,
+            "max_tokens": 500
+        }
+
+        response = requests.post(URL, json=data, headers=headers)
+        reply = response.json()["choices"][0]["message"]["content"]
         return jsonify({"reply": reply})
-        
+
     except Exception as e:
         return jsonify({"reply": f"Error: {str(e)}"}), 500
 
-# This keeps Render happy
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
