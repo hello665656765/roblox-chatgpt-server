@@ -4,8 +4,8 @@ import requests
 
 app = Flask(__name__)
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-URL = "https://api.groq.com/openai/v1/chat/completions"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -15,18 +15,21 @@ def chat():
             return jsonify({"reply": "Say something!"})
 
         headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
         data = {
-            "model": "llama-3.3-70b-versatile",  # super fast & free
-            "messages": [{"role": "user", "content": user_message}],
-            "temperature": 0.7,
-            "max_tokens": 500
+            "contents": [{"parts": [{"text": user_message}]}],
+            "generationConfig": {
+                "temperature": 0.7,
+                "maxOutputTokens": 500
+            }
         }
 
-        response = requests.post(URL, json=data, headers=headers)
-        reply = response.json()["choices"][0]["message"]["content"]
+        response = requests.post(f"{URL}?key={GEMINI_API_KEY}", json=data, headers=headers)
+        if response.status_code != 200:
+            return jsonify({"reply": f"API error: {response.status_code}"}), 500
+        
+        reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
         return jsonify({"reply": reply})
 
     except Exception as e:
