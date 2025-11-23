@@ -3,41 +3,32 @@ import os
 import requests
 
 app = Flask(__name__)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Switch to stable v1 endpoint + current model alias (gemini-1.5-flash-latest points to the newest stable 1.5-flash variant as of Nov 2025)
-URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+URL = "https://api.groq.com/openai/v1/chat/completions"
 
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
-        user_message = request.json.get("message", "").strip()
+        user_message = request.json.get("message", "")
         if not user_message:
             return jsonify({"reply": "Say something!"})
-        
-        payload = {
-            "contents": [{"parts": [{"text": user_message}]}],
-            "safetySettings": [
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"}
-            ]
+
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
         }
-        
-        response = requests.post(
-            f"{URL}?key={GEMINI_API_KEY}",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=30
-        )
-        
-        if response.status_code != 200:
-            return jsonify({"reply": f"API error: {response.status_code} - {response.text[:200]}..."}), 500
-        
-        reply = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        data = {
+            "model": "llama-3.3-70b-versatile",  # super fast & free
+            "messages": [{"role": "user", "content": user_message}],
+            "temperature": 0.7,
+            "max_tokens": 500
+        }
+
+        response = requests.post(URL, json=data, headers=headers)
+        reply = response.json()["choices"][0]["message"]["content"]
         return jsonify({"reply": reply})
-    
+
     except Exception as e:
         return jsonify({"reply": f"Error: {str(e)}"}), 500
 
