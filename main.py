@@ -5,30 +5,33 @@ import requests
 app = Flask(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
+# NEW WORKING ENDPOINT (November 2025+)
+URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
 
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
-        user_message = request.json.get("message", "")
+        user_message = request.json.get("message", "").strip()
         if not user_message:
             return jsonify({"reply": "Say something!"})
 
-        headers = {
-            "Content-Type": "application/json"
-        }
-        data = {
+        payload = {
             "contents": [{"parts": [{"text": user_message}]}],
-            "generationConfig": {
-                "temperature": 0.7,
-                "maxOutputTokens": 500
-            }
+            "safetySettings": [
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+            ]
         }
 
-        response = requests.post(f"{URL}?key={GEMINI_API_KEY}", json=data, headers=headers)
+        response = requests.post(
+            f"{URL}?key={GEMINI_API_KEY}",
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=20
+        )
+
         if response.status_code != 200:
             return jsonify({"reply": f"API error: {response.status_code}"}), 500
-        
+
         reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
         return jsonify({"reply": reply})
 
