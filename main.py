@@ -5,7 +5,7 @@ import requests
 app = Flask(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# Corrected endpoint for free tier (Nov 2025)
+# Stable model for free tier (confirmed Nov 2025)
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 @app.route("/chat", methods=["POST"])
@@ -35,8 +35,8 @@ def chat():
         if response.status_code != 200:
             return jsonify({"reply": f"API error: {response.status_code} - {response.text[:200]}..."}), 500
 
-        reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
-        return jsonify({"reply": reply.strip()})
+        reply = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return jsonify({"reply": reply})
 
     except Exception as e:
         return jsonify({"reply": f"Error: {str(e)}"}), 500
