@@ -3,10 +3,10 @@ import os
 import requests
 
 app = Flask(__name__)
-
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# Stable model for free tier (confirmed Nov 2025)
-URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
+# Switch to stable v1 endpoint + current model alias (gemini-1.5-flash-latest points to the newest stable 1.5-flash variant as of Nov 2025)
+URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent"
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -14,7 +14,7 @@ def chat():
         user_message = request.json.get("message", "").strip()
         if not user_message:
             return jsonify({"reply": "Say something!"})
-
+        
         payload = {
             "contents": [{"parts": [{"text": user_message}]}],
             "safetySettings": [
@@ -24,20 +24,20 @@ def chat():
                 {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"}
             ]
         }
-
+        
         response = requests.post(
             f"{URL}?key={GEMINI_API_KEY}",
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=30
         )
-
+        
         if response.status_code != 200:
             return jsonify({"reply": f"API error: {response.status_code} - {response.text[:200]}..."}), 500
-
+        
         reply = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
         return jsonify({"reply": reply})
-
+    
     except Exception as e:
         return jsonify({"reply": f"Error: {str(e)}"}), 500
 
