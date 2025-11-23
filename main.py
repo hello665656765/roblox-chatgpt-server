@@ -5,8 +5,8 @@ import requests
 app = Flask(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# NEW WORKING ENDPOINT (November 2025+)
-URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+# Corrected endpoint for free tier (Nov 2025)
+URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -18,7 +18,10 @@ def chat():
         payload = {
             "contents": [{"parts": [{"text": user_message}]}],
             "safetySettings": [
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"}
             ]
         }
 
@@ -26,14 +29,14 @@ def chat():
             f"{URL}?key={GEMINI_API_KEY}",
             json=payload,
             headers={"Content-Type": "application/json"},
-            timeout=20
+            timeout=30
         )
 
         if response.status_code != 200:
-            return jsonify({"reply": f"API error: {response.status_code}"}), 500
+            return jsonify({"reply": f"API error: {response.status_code} - {response.text[:200]}..."}), 500
 
         reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
-        return jsonify({"reply": reply})
+        return jsonify({"reply": reply.strip()})
 
     except Exception as e:
         return jsonify({"reply": f"Error: {str(e)}"}), 500
