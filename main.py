@@ -5,7 +5,8 @@ import requests
 app = Flask(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"  # Stable free model
+# Updated Nov 25, 2025: Free preview model (stable for v1beta)
+URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -14,7 +15,6 @@ def chat():
         if not user_message:
             return jsonify({"reply": "Say something!"})
 
-        # Minimal payload (no safetySettings — avoids 400s)
         payload = {
             "contents": [
                 {
