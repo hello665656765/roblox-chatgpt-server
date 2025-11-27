@@ -50,15 +50,28 @@ def chat():
         if response.status_code != 200:
             return jsonify({"reply": f"API error: {response.status_code}"}), 500
 
-        reply = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+               reply = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
 
-        # Add AI reply to history
+        # ────── FORCE ROBLOX 190-CHAR LIMIT + NEVER CUT MID-SENTENCE ──────
+        MAX_CHARS = 190
+
+        if len(reply) <= MAX_CHARS:
+            final_reply = reply
+        else:
+            # Find the last space/comma/period/question mark before 190 chars
+            cut = MAX_CHARS
+            while cut > 100 and reply[cut] not in " .,!?\n":
+                cut -= 1
+            if cut <= 100:  # safety fallback
+                cut = MAX_CHARS
+            final_reply = reply[:cut].rstrip(" .,?!") + "…"  # clean ending
+
+        # Save FULL reply to memory (so Gemini remembers everything)
         history.append({"role": "model", "parts": [{"text": reply}]})
-
-        # Save back
         conversations[user_id] = history
 
-        return jsonify({"reply": reply})
+        # Send only the safe short version to Roblox
+        return jsonify({"reply": final_reply})
 
     except Exception as e:
         return jsonify({"reply": f"Error: {str(e)}"}), 500
