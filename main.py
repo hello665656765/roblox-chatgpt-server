@@ -50,18 +50,32 @@ def chat():
 
         # Generate response with safety filters DISABLED to avoid empty replies
         response = model.generate_content(
-            user_message,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.7,          # Balanced creativity
-                max_output_tokens=300,    # Enough for good replies
-            ),
-            safety_settings={             # ← This fixes most "No reply" issues
-                "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
-                "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
-                "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
-                "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE",
-            }
-        )
+    [
+        # ← This system prompt is the key
+        {"role": "model", "parts": [{
+            "text": 
+                "You are a helpful, friendly AI named Gemini. "
+                "Always reply in clear, natural, complete English sentences. "
+                "Finish every thought properly — never cut sentences short. "
+                "Use proper grammar and punctuation. "
+                "Be concise but thorough, aim for 1-4 full sentences per reply unless asked for more."
+        }]},
+        
+        # The actual user message (player name + their chat)
+        {"role": "user", "parts": [{"text": user_message}]}
+    ],
+    
+    generation_config=genai.types.GenerationConfig(
+        temperature=0.7,           # keep or lower to 0.6–0.8 for more consistent style
+        max_output_tokens=400,     # ↑ this helps a lot – was probably too low before
+    ),
+    safety_settings={
+        "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
+        "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
+        "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
+        "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE",
+    }
+)
 
         # More robust reply extraction
         reply_text = ""
