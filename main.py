@@ -1,66 +1,88 @@
 from flask import Flask, request, jsonify
+import google.generativeai as genai
 import os
-import requests
+import sys
 
 app = Flask(__name__)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
 
-conversations = {}
+# =============================================
+#          CONFIGURATION - VERY IMPORTANT
+# =============================================
+# 1. Go to https://aistudio.google.com/app/apikey
+# 2. Create new API key (free tier gives you plenty for testing)
+# 3. In Render dashboard → your service → Environment tab
+#    Add new environment variable:
+#    Name: GEMINI_API_KEY
+#    Value: your-key-here
+# =============================================
 
-@app.route("/chat", methods=["POST"])
-def chat():
+try:
+    GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+    genai.configure(api_key=GEMINI_API_KEY)
+    print("Gemini API key loaded successfully", file=sys.stderr)
+except KeyError:
+    print("ERROR: GEMINI_API_KEY environment variable is not set!", file=sys.stderr)
+    GEMINI_API_KEY = None
+
+# Use latest stable model (as of Jan 2026)
+MODEL_NAME = "gemini-1.5-flash"   # or "gemini-1.5-pro" if you have access
+
+model = None
+if GEMINI_API_KEY:
     try:
-        data = request.json or {}
-        user_message = data.get("message", "").strip()
-        user_id = str(data.get("userId", "unknown"))
+        model = genai.GenerativeModel(MODEL_NAME)
+        print(f"Model {MODEL_NAME} initialized", file=sys.stderr)
+    except Exception as e:
+        print(f"Failed to initialize model: {e}", file=sys.stderr)
 
-        if not user_message:
-            return jsonify({"reply": "Say something!"})
 
-        history = conversations.get(user_id, [])
-        history.append({"role": "user", "parts": [{"text": user_message}]})
-        if len(history) > 20:
-            history = history[-20:]
+@app.route('/chat', methods=['POST'])
+def chat():
+    if GEMINI_API_KEY is None:
+        return jsonify({"error": "Server not configured - missing GEMINI_API_KEY"}), 500
 
-        payload = {
-            "contents": history,
-            "safetySettings": [
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"}
-            ]
-        }
+    if model is None:
+        return jsonify({"error": "Failed to load Gemini model"}), 500
 
-        response = requests.post(f"{URL}?key={GEMINI_API_KEY}", json=payload, timeout=30)
-        
-        if response.status_code != 200:
-            return jsonify({"reply": f"Gemini error {response.status_code}"}), 500
+    try:
+        data = request.get_json(force=True)
+        if not data or 'message' not in data:
+            return jsonify({"error": "Missing 'message' field in JSON"}), 400
 
-        full_reply = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        user_message = data['message']
+        print(f"Received message: {user_message[:100]}...", file=sys.stderr)
 
-        # Force Roblox 190-char limit + never cut mid-sentence
-        MAX = 190
-        if len(full_reply) <= MAX:
-            final_reply = full_reply
-        else:
-            cut = MAX
-            while cut > 100 and full_reply[cut] not in " .,!?\n":
-                cut -= 1
-            if cut <= 100:
-                cut = MAX
-            final_reply = full_reply[:cut].rstrip(" .,?!") + "…"
+        # Optional: add safety settings or generation config
+        response = model.generate_content(
+            user_message,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=300,
+            )
+        )
 
-        # Save full reply for memory, send short one to Roblox
-        history.append({"role": "model", "parts": [{"text": full_reply}]})
-        conversations[user_id] = history
+        reply_text = response.text.strip() if response.text else "Sorry, I couldn't generate a response."
 
-        return jsonify({"reply": final_reply})
+        return jsonify({"reply": reply_text})
 
     except Exception as e:
-        return jsonify({"reply": "Backend error"}), 500
+        error_msg = str(e)
+        print(f"Error processing request: {error_msg}", file=sys.stderr)
+        return jsonify({"error": error_msg}), 500
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+
+@app.route('/', methods=['GET'])
+def health_check():
+    """Simple health check so base URL doesn't 404"""
+    status = {
+        "status": "online",
+        "model": MODEL_NAME if model else "not loaded",
+        "api_key_set": bool(GEMINI_API_KEY)
+    }
+    return jsonify(status)
+
+
+if __name__ == '__main__':
+    # For local testing
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
