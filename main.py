@@ -25,7 +25,13 @@ except KeyError:
     GEMINI_API_KEY = None
 
 # Use latest stable model (as of Jan 2026)
-MODEL_NAME = "gemini-1.5-flash"   # or "gemini-1.5-pro" if you have access
+MODEL_NAME = "gemini-2.5-flash"      # Recommended: fast, cheap, current stable equivalent
+# or
+MODEL_NAME = "gemini-2.5-flash-latest"   # Auto-updates to newest flash variant
+# or (higher quality, bit slower):
+# MODEL_NAME = "gemini-2.5-pro"
+# or (newest frontier, preview as of Jan 2026):
+# MODEL_NAME = "gemini-3-flash-preview"
 
 model = None
 if GEMINI_API_KEY:
